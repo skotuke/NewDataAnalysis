@@ -14,7 +14,7 @@ number_of_files = length(filenames); %length is a function getting a number
 m = 1;
 
 % This is used for calculating velocity from latency.
-distance = 1583 / 1000;
+distance = 1556.596/1000000;
 
 % For how many sweeps do you want to preprovision arrays (use number from the 
 % file with most sweeps in it)
@@ -23,28 +23,90 @@ sweeps = 10;
 % Do not forget to set the filter to correspond with what you had when
 % recording.
 filter = 20000;
+virtual_sweeps_1hz = [
+    0.5688
+    1.5688
+    2.5688
+    3.5688
+    4.5688
+    5.5688
+    6.5688
+    7.5688
+    8.5688
+    9.5688
+
+
+] * filter;
+
+virtual_sweeps_10hz = [
+    0.5688
+    0.6688
+    0.7688
+    0.8688
+    0.9688
+    1.0688
+    1.1688
+    1.2688
+    1.3688
+    1.4688
+
+    
+] * filter;
+
+virtual_sweeps_30hz = [
+    0.5688
+    0.60215
+    0.6355
+    0.66885
+    0.7022
+    0.73555
+    0.7689
+    0.80225
+    0.8356
+    0.86895
+
+  
+] * filter;
+
+virtual_sweeps_100hz = [
+    0.5688
+    0.5788
+    0.5888
+    0.5988
+    0.6088
+    0.6188
+    0.6288
+    0.6388
+    0.6488
+    0.6588
+
+] * filter;
+
+virtual_sweeps_300hz = [
+    0.5688
+    0.572133333
+    0.575466667
+    0.5788
+    0.582133333
+    0.585466667
+    0.5888
+    0.592133333
+    0.595466667
+    0.5988
+
+
+] * filter;
 
 use_virtual_sweeps = 1;
 
 % If use_virtual_sweeps is 0, you can set one artifact, which will be taken
 % be used in every sweep.
-stimulus_artifact = 0.17813 * filter;
+%stimulus_artifact = 0.17813 * filter;
 
 % If you have all the action potentials in one sweep, you can instead set
 % the list of artifacts in the list above. To use it, you need to set
 % use_virtual_sweeps to 1.
-virtual_sweeps = [
-    0.568
-    1.568
-    2.568
-    3.568
-    4.568
-    5.568
-    6.568
-    7.568
-    8.568
-    9.568
-] * filter;
+%virtual_sweeps = virtual_sweeps_30hz;
 
 k_rows = 4;
 k_spot = 0;
@@ -63,6 +125,28 @@ Latency_all_std = zeros(1, number_of_files);
 width_list_all = zeros(sweeps, number_of_files);
 
 for i = 1:number_of_files
+    if use_virtual_sweeps == 1;
+        if i==1;
+          virtual_sweeps = virtual_sweeps_1hz;
+        end
+
+        if i==2| i==4| i==6 | i==8 | i==10 | i==12
+          virtual_sweeps = virtual_sweeps_10hz;
+        end
+
+        if i==3;
+          virtual_sweeps = virtual_sweeps_30hz;
+        end
+
+        if i==5;
+          virtual_sweeps = virtual_sweeps_100hz;
+        end
+
+        if i==7| i==9| i==11
+          continue;
+        end
+    end
+    
     filename = filenames(i);
     fullname = strcat(path, filenames(i));
     data = abfload(char(fullname));
@@ -131,32 +215,39 @@ for i = 1:number_of_files
         width, ...
         width_start, ...
         width_finish ...
-    ] = parse(data, duration, stimulus_artifacts, sweeps);
+    ] = parse(data, duration, stimulus_artifacts, sweeps, filter);
     m = m + 1;
     
     AP_times_all (:,i) = AP_times(1:sweeps);
     AP_actual_sizes_all (:,i) = AP_actual_sizes;
+    AP_actual_sizes_all( :, ~any(AP_actual_sizes_all,1) ) = [];
     Latency_all (:,i) = Latency (1:sweeps);
+    Latency_all( :, ~any(Latency_all,1) ) = [];
     
     speed_all (:,i) = distance./Latency;
     for k = 1:length(Latency)
         if speed_all(k,i) == Inf
             speed_all(k,i) = 0;
         end
-    end
+    end    
+     speed_all( :, ~any(speed_all,1) ) = [];
     
     CV(:,i) = std(Latency_all)/mean(Latency_all);
-    hw_list_all(:,i) = hw_list(1:sweeps)./100;
-    width_list_all(:,i) = width(1:sweeps)./100;
-    max_second_derivatives_all(:,i) = max_second_derivatives (1:sweeps)*100;
-    RMP_all (:,i) = RMP(1:sweeps);
+    CV( :, ~any(CV,1) ) = [];
+    hw_list_all(:,i) = hw_list(1:sweeps)./filter*1000;
+    hw_list_all( :, ~any(hw_list_all,1) ) = [];
+    width_list_all(:,i) = width(1:sweeps)./filter*1000;
+    width_list_all( :, ~any(width_list_all,1) ) = [];
+    max_second_derivatives_all(:,i) = max_second_derivatives (1:sweeps)*filter/1000;
+    max_second_derivatives_all( :, ~any(max_second_derivatives_all,1) ) = [];
+    %RMP_all (:,i) = RMP(1:sweeps);
     
-    Latency_all_means(1, i) = mean(Latency_all(Latency_all(:, i) ~= 0, i));
-    Latency_all_std(1, i) = std(Latency_all(Latency_all(:, i) ~= 0, i));
-    speed_all_means (1, i) = mean(speed_all(speed_all(:, i) ~= 0, i));
-    AP_actual_sizes_all_means (1, i) = mean(AP_actual_sizes_all(AP_actual_sizes_all(:, i) ~= 0, i));
-    hw_list_all_means (1, i) = mean(hw_list_all(hw_list_all(:, i) ~= 0, i));
-    max_second_derivatives_all_means (1, i) = mean(max_second_derivatives_all(max_second_derivatives_all(:, i) ~= 0, i));
+    %Latency_all_means(1, i) = mean(Latency_all(Latency_all(:, i) ~= 0, i));
+    %Latency_all_std(1, i) = std(Latency_all(Latency_all(:, i) ~= 0, i));
+    %speed_all_means (1, i) = mean(speed_all(speed_all(:, i) ~= 0, i));
+    %AP_actual_sizes_all_means (1, i) = mean(AP_actual_sizes_all(AP_actual_sizes_all(:, i) ~= 0, i));
+    %hw_list_all_means (1, i) = mean(hw_list_all(hw_list_all(:, i) ~= 0, i));
+    %max_second_derivatives_all_means (1, i) = mean(max_second_derivatives_all(max_second_derivatives_all(:, i) ~= 0, i));
 end
 
 
@@ -169,13 +260,17 @@ else
     excel_name = sprintf('%s\\AP velocity_%s.xlsx', path, primary_filename) %it tells the full path of the file
 end
 
+if use_virtual_sweeps == 1;
+    filenames(:,[7 9 11]) = [];
+end
+
 warning('off', 'MATLAB:xlswrite:AddSheet');
 row_header={'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Mean', 'Length'};
 row_header2={'1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Mean', 'SD'};
 xlswrite(excel_name, row_header2', 'Latency','A4');
 xlswrite(excel_name, [filenames], 'Latency', 'B3');
-xlswrite(excel_name, Latency_all, 'Latency', 'B4');
-xlswrite(excel_name, Latency_all_means, 'Latency', 'B14');
+xlswrite(excel_name, Latency_all*1000, 'Latency', 'B4');
+xlswrite(excel_name, Latency_all_means*1000, 'Latency', 'B14');
 xlswrite(excel_name, Latency_all_std, 'Latency', 'B15');
 xlswrite(excel_name, row_header', 'Velocity','A4');
 xlswrite(excel_name, [filenames], 'Velocity', 'B3');
